@@ -171,6 +171,11 @@ class Blueprint(_PackageBoundObject):
             blueprint has been registered on the application.
         """
         self._got_registered_once = True
+        # 这里为什么要一个state，为什么不直接使用app的方法呢？
+        # 我个人认为从面向对象角度考虑，state属于将app和blueprint关联起来的地方
+        # 它做的事情应该就是处理2这相关的事情，解耦2者之间非常强的耦合。虽然这blueprint很多地方都
+        # 是直接调用state.app.xxx这和直接调用有啥区别呢？这里直接调用是因为xxx函数功能不需要state自己去实现
+        # 修改一些逻辑。
         state = self.make_setup_state(app, options, first_registration)
 
         if self.has_static_folder:

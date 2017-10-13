@@ -1202,6 +1202,7 @@ class Flask(_PackageBoundObject):
     @staticmethod
     def _get_exc_class_and_code(exc_class_or_code):
         """Ensure that we register only exceptions as handler keys"""
+        # 判断是不是整数异常
         if isinstance(exc_class_or_code, integer_types):
             exc_class = default_exceptions[exc_class_or_code]
         else:
@@ -1274,14 +1275,17 @@ class Flask(_PackageBoundObject):
             )
 
         try:
+            # 默认像我们使用的方式，返回的就是NotFound,None
             exc_class, code = self._get_exc_class_and_code(code_or_exception)
         except KeyError:
             raise KeyError(
                 "'{0}' is not a recognized HTTP error code. Use a subclass of"
                 " HTTPException with that code instead.".format(code_or_exception)
             )
-
+        # 这里的self.error_handler_spec的数据结构是这样的{None: {None: {}}}
+        # handler指向的是最里边的那个字典
         handlers = self.error_handler_spec.setdefault(key, {}).setdefault(code, {})
+        # 这句话的处理结果就是{None: {None: {'love': 1234}}}这种格式，
         handlers[exc_class] = f
 
     @setupmethod
@@ -1542,16 +1546,18 @@ class Flask(_PackageBoundObject):
         class, or ``None`` if a suitable handler is not found.
         """
         exc_class, code = self._get_exc_class_and_code(type(e))
-
+        # 这里就是循环在蓝图和app中寻找了哈，你看优先找的是蓝图的有code的，当然我们现在用的
+        # 就是最后的none, none
         for name, c in (
             (request.blueprint, code), (None, code),
             (request.blueprint, None), (None, None)
         ):
+            # 这里的handler_map就是得到的最里边的那一层字典{None: {None: {}}}
             handler_map = self.error_handler_spec.setdefault(name, {}).get(c)
 
             if not handler_map:
                 continue
-
+            # 这里就是寻找handler了。。。巴拉巴拉。。。
             for cls in exc_class.__mro__:
                 handler = handler_map.get(cls)
 
@@ -1617,6 +1623,7 @@ class Flask(_PackageBoundObject):
 
         .. versionadded:: 0.7
         """
+        # 系统异常信息，跑出来的异常是不是你自己定义的
         exc_type, exc_value, tb = sys.exc_info()
         assert exc_value is e
         # ensure not to trash sys.exc_info() at that point in case someone
@@ -1634,10 +1641,10 @@ class Flask(_PackageBoundObject):
             and e.description is BadRequestKeyError.description
         ):
             e.description = "KeyError: '{0}'".format(*e.args)
-
+        # 处理普通的http异常
         if isinstance(e, HTTPException) and not self.trap_http_exception(e):
             return self.handle_http_exception(e)
-
+        # 核心是这里，
         handler = self._find_error_handler(e)
 
         if handler is None:
@@ -1738,6 +1745,7 @@ class Flask(_PackageBoundObject):
             if rv is None:
                 rv = self.dispatch_request()
         except Exception as e:
+            # 这里才是处理用户异常的地方
             rv = self.handle_user_exception(e)
         return self.finalize_request(rv)
 
@@ -2162,6 +2170,7 @@ class Flask(_PackageBoundObject):
                 response = self.full_dispatch_request()
             except Exception as e:
                 error = e
+                # 真个app层的异常
                 response = self.handle_exception(e)
             except:
                 error = sys.exc_info()[1]
